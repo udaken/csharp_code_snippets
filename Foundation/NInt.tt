@@ -1,0 +1,145 @@
+<#@ template debug="true" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".cs" #>
+using System;
+using System.Collections.Generic;
+using System.Runtime.CompilerServices;
+
+namespace System {
+<# foreach(var t in new[] {(name: "@nint", type: ""), (name: "@nuint", type: "U")}) { #>
+readonly unsafe struct <#= t.name #> : IEquatable<<#= t.name #>>, IComparable<<#= t.name #>>
+{
+    public static readonly <#= t.name #> Zero = default;
+    public static <#= t.name #> MaxValue
+        => <#= t.type #>IntPtr.Size == 4 ?
+        new <#= t.name #>((<#= t.type #>Int32.MaxValue)) :
+        new <#= t.name #>((<#= t.type #>Int64.MaxValue));
+
+    public static <#= t.name #> MinValue
+        => <#= t.type #>IntPtr.Size == 4 ?
+        new <#= t.name #>((<#= t.type #>Int32.MinValue)) :
+        new <#= t.name #>((<#= t.type #>Int64.MinValue));
+
+    readonly <#= t.type #>IntPtr _value;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public <#= t.name #>(void* p) => _value = new <#= t.type #>IntPtr(p);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public <#= t.name #>(<#= t.type #>Int32 p) => _value = new <#= t.type #>IntPtr(p);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public <#= t.name #>(<#= t.type #>Int64 p) 
+        => _value = <#= t.type #>IntPtr.Size == 8 ? 
+            new <#= t.type #>IntPtr(p) :
+             <#= t.type #>Int32.MaxValue < p ?  new <#= t.type #>IntPtr((<#= t.type #>Int32)p) : throw new ArgumentException()   ;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static explicit operator <#= t.name #>(void* b) => new <#= t.name #>(b);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static explicit operator <#= t.type #>Int32 (<#= t.name #> b) => (<#= t.type #>Int32)(b._value);
+    
+    <# if( t.type == "U" ) { #>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static explicit operator Int32 (<#= t.name #> b) => (Int32)(b._value);
+    <# } #>
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static implicit operator <#= t.name #>(<#= t.type #>Int32 b) => new <#= t.name #>(b);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static implicit operator void*(<#= t.name #> b) => (b._value.ToPointer());
+
+<# foreach(var op in new[] {"+", "-", "*", "/", "&", "%"}) { #>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static <#= t.name #> operator <#= op #>(<#= t.name #> a, <#= t.name #> b)
+        => <#= t.type #>IntPtr.Size == 4 ?
+        new <#= t.name #>((void*)(a._value.To<#= t.type #>Int32() <#= op #> b._value.To<#= t.type #>Int32())) :
+        new <#= t.name #>((void*)(a._value.To<#= t.type #>Int64() <#= op #> b._value.To<#= t.type #>Int64()));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static <#= t.name #> operator <#= op #>(<#= t.name #> a, <#= t.type #>Int32 b)
+        => <#= t.type #>IntPtr.Size == 4 ?
+        new <#= t.name #>((void*)(a._value.To<#= t.type #>Int32() <#= op #> b)) :
+        new <#= t.name #>((void*)(a._value.To<#= t.type #>Int64() <#= op #> b));
+
+
+<# } #>
+
+<# foreach(var op in new[] {">>", "<<"}) { #>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static <#= t.name #> operator <#= op #>(<#= t.name #> a, Int32 b)
+        => <#= t.type #>IntPtr.Size == 4 ?
+        new <#= t.name #>((void*)(a._value.To<#= t.type #>Int32() <#= op #> b)) :
+        new <#= t.name #>((void*)(a._value.To<#= t.type #>Int64() <#= op #> b));
+
+<# } #>
+
+<# foreach(var op in new[] {"+", "-"}) { #>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static <#= t.name #> operator <#= op #>(void* a, <#= t.name #> b)
+        => <#= t.type #>IntPtr.Size == 4 ?
+        new <#= t.name #>(a) <#= op #> b :
+        new <#= t.name #>(a) <#= op #> b;
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static <#= t.name #> operator <#= op #>(byte* a, <#= t.name #> b)
+        => <#= t.type #>IntPtr.Size == 4 ?
+        new <#= t.name #>(a) <#= op #> b :
+        new <#= t.name #>(a) <#= op #> b;
+
+<# } #>
+
+<# foreach(var op in new[] {"+", "-", "~"}) { #>
+    <# if( t.type != "U" ) { #>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static <#= t.name #> operator <#= op #>(<#= t.name #> a)
+        => <#= t.type #>IntPtr.Size == 4 ?
+        new <#= t.name #>((<#= t.type #>Int32)(<#= op #>a._value.To<#= t.type #>Int32())) :
+        new <#= t.name #>((<#= t.type #>Int64)(<#= op #>a._value.To<#= t.type #>Int64()));
+    
+    <# } #>
+<# } #>
+
+
+<# foreach(var op in new[] {"<", "<=", ">", ">=", "==", "!="}) { #>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool operator <#= op #>(<#= t.name #> a, <#= t.name #> b)
+        => <#= t.type #>IntPtr.Size == 4 ?
+        ((a._value.To<#= t.type #>Int32() <#= op #> b._value.To<#= t.type #>Int32())) :
+        ((a._value.To<#= t.type #>Int64() <#= op #> b._value.To<#= t.type #>Int64()));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static bool operator <#= op #>(<#= t.name #> a, <#= t.type #>Int32 b)
+        => <#= t.type #>IntPtr.Size == 4 ?
+        ((a._value.To<#= t.type #>Int32() <#= op #> b)) :
+        ((a._value.To<#= t.type #>Int64() <#= op #> b));
+
+<# } #>
+<# foreach(var op in new[] {"++", "--"}) { #>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static <#= t.name #> operator <#= op #>(<#= t.name #> a)
+        => <#= t.type #>IntPtr.Size == 4 ?
+        new <#= t.name #>(a._value.To<#= t.type #>Int32() <#= op[0] #> 1 ) :
+        new <#= t.name #>(a._value.To<#= t.type #>Int64() <#= op[0] #> 1 );
+
+<# } #>
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override bool Equals(object other) => other is <#= t.name #> a && Equals(a);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool Equals(<#= t.name #> other) => _value == other._value;
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override int GetHashCode() => _value.GetHashCode();
+    
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int CompareTo(<#= t.name #>  other) => this > other ? 1 : this < other ? -1 : 0;
+}
+<# } #>
+}
